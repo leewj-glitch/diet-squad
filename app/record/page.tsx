@@ -4,6 +4,13 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { TabBar, MEMBERS } from '../feed/page'
 
+const memberStyles = {
+  '1': { bg: 'bg-purple-50', button: 'bg-purple-400', ring: 'ring-purple-300' },
+  '2': { bg: 'bg-yellow-50', button: 'bg-yellow-300', ring: 'ring-yellow-200' },
+  '3': { bg: 'bg-pink-50', button: 'bg-pink-300', ring: 'ring-pink-200' },
+  '4': { bg: 'bg-sky-50', button: 'bg-sky-300', ring: 'ring-sky-200' },
+}
+
 export default function RecordPage() {
   const [member, setMember] = useState<any>(MEMBERS[0])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
@@ -96,61 +103,64 @@ export default function RecordPage() {
     setMemo('')
   }
 
-  const colors = ['bg-violet-500', 'bg-teal-500', 'bg-orange-500', 'bg-blue-500']
+  const style = memberStyles[member?.id as keyof typeof memberStyles] || memberStyles['1']
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className={`min-h-screen ${style.bg} pb-24 transition-colors duration-300`}>
       <div className="max-w-lg mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold">기록</h1>
           {existingId && (
-            <button onClick={handleDelete} className="text-red-400 text-sm border border-red-200 px-3 py-1 rounded-xl">삭제</button>
+            <button onClick={handleDelete} className="text-red-400 text-sm border border-red-200 px-3 py-1 rounded-xl bg-white">삭제</button>
           )}
         </div>
 
         {existingId && (
-          <div className="bg-violet-50 border border-violet-100 rounded-2xl px-4 py-3 mb-4 text-sm text-violet-700">
+          <div className="bg-white/70 border border-white rounded-2xl px-4 py-3 mb-4 text-sm text-gray-600">
             이미 기록이 있어요. 수정 후 저장하면 덮어써요 ✏️
           </div>
         )}
 
         {/* 멤버 선택 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">누구로 기록할까요?</p>
           <div className="grid grid-cols-4 gap-2">
-            {MEMBERS.map((m, i) => (
-              <button key={m.id} onClick={() => handleMemberChange(m)}
-                className={`py-3 rounded-xl text-sm font-semibold text-white transition-all ${colors[i]} ${member?.id === m.id ? 'opacity-100 ring-2 ring-offset-2 ring-violet-300' : 'opacity-40'}`}>
-                {m.nickname}
-              </button>
-            ))}
+            {MEMBERS.map((m) => {
+              const s = memberStyles[m.id as keyof typeof memberStyles]
+              return (
+                <button key={m.id} onClick={() => handleMemberChange(m)}
+                  className={`py-3 rounded-xl text-sm font-semibold text-white transition-all ${s.button} ${member?.id === m.id ? `opacity-100 ring-2 ring-offset-2 ${s.ring}` : 'opacity-40'}`}>
+                  {m.nickname}
+                </button>
+              )
+            })}
           </div>
         </div>
 
         {/* 날짜 선택 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">날짜 선택</p>
           <input
             type="date"
             value={selectedDate}
             max={today}
             onChange={e => setSelectedDate(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm bg-white"
           />
         </div>
 
         {/* 저녁 식단 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">저녁 식단</p>
           <div className="flex gap-2">
             {[
-              { value: 'clean', label: '🥗 클린식', active: 'bg-green-500 text-white' },
-              { value: 'normal', label: '🍚 일반식', active: 'bg-blue-500 text-white' },
-              { value: 'pig', label: '🐷 돼지식', active: 'bg-pink-500 text-white' },
+              { value: 'clean', label: '🥗 클린식', active: 'bg-green-400 text-white' },
+              { value: 'normal', label: '🍚 일반식', active: 'bg-blue-400 text-white' },
+              { value: 'pig', label: '🐷 돼지식', active: 'bg-pink-400 text-white' },
             ].map(opt => (
               <button key={opt.value} onClick={() => setMealType(opt.value as any)}
-                className={`flex-1 py-3 rounded-xl text-xs font-medium ${mealType === opt.value ? opt.active : 'border border-gray-200 text-gray-400'}`}>
+                className={`flex-1 py-3 rounded-xl text-xs font-medium ${mealType === opt.value ? opt.active : 'border border-gray-200 text-gray-400 bg-white'}`}>
                 {opt.label}
               </button>
             ))}
@@ -158,15 +168,15 @@ export default function RecordPage() {
         </div>
 
         {/* 운동 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">운동</p>
           <div className="flex gap-2 mb-3">
             <button onClick={() => setExerciseDone(true)}
-              className={`flex-1 py-3 rounded-xl text-sm font-medium ${exerciseDone ? 'bg-violet-500 text-white' : 'border border-gray-200 text-gray-400'}`}>
+              className={`flex-1 py-3 rounded-xl text-sm font-medium ${exerciseDone ? 'bg-violet-400 text-white' : 'border border-gray-200 text-gray-400 bg-white'}`}>
               💪 했어요
             </button>
             <button onClick={() => { setExerciseDone(false); setExerciseMinutes(0) }}
-              className={`flex-1 py-3 rounded-xl text-sm font-medium ${!exerciseDone ? 'bg-gray-400 text-white' : 'border border-gray-200 text-gray-400'}`}>
+              className={`flex-1 py-3 rounded-xl text-sm font-medium ${!exerciseDone ? 'bg-gray-400 text-white' : 'border border-gray-200 text-gray-400 bg-white'}`}>
               ❌ 안 했어요
             </button>
           </div>
@@ -174,49 +184,49 @@ export default function RecordPage() {
             <input type="number" placeholder="운동 시간 (분)"
               value={exerciseMinutes || ''}
               onChange={e => setExerciseMinutes(Number(e.target.value))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm" />
+              className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm bg-white" />
           )}
         </div>
 
         {/* 간식 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">간식</p>
           <div className="flex items-center gap-4">
             <button onClick={() => setSnackCount(Math.max(0, snackCount - 1))}
-              className="w-10 h-10 border border-gray-200 rounded-xl text-xl">−</button>
+              className="w-10 h-10 border border-gray-200 rounded-xl text-xl bg-white">−</button>
             <span className="text-xl font-semibold w-8 text-center">{snackCount}</span>
             <button onClick={() => setSnackCount(snackCount + 1)}
-              className="w-10 h-10 border border-gray-200 rounded-xl text-xl">+</button>
+              className="w-10 h-10 border border-gray-200 rounded-xl text-xl bg-white">+</button>
             <span className="text-sm text-gray-400">회</span>
             {snackCount > 1 && <span className="text-orange-500 text-sm ml-auto">⚠️ {(snackCount - 1) * 1000}원</span>}
           </div>
         </div>
 
         {/* 음주 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">음주</p>
           <div className="flex gap-2">
             <button onClick={() => setDrinkDone(true)}
-              className={`flex-1 py-3 rounded-xl text-sm font-medium ${drinkDone ? 'bg-orange-400 text-white' : 'border border-gray-200 text-gray-400'}`}>
+              className={`flex-1 py-3 rounded-xl text-sm font-medium ${drinkDone ? 'bg-orange-300 text-white' : 'border border-gray-200 text-gray-400 bg-white'}`}>
               🍺 했어요
             </button>
             <button onClick={() => setDrinkDone(false)}
-              className={`flex-1 py-3 rounded-xl text-sm font-medium ${!drinkDone ? 'bg-gray-400 text-white' : 'border border-gray-200 text-gray-400'}`}>
+              className={`flex-1 py-3 rounded-xl text-sm font-medium ${!drinkDone ? 'bg-gray-400 text-white' : 'border border-gray-200 text-gray-400 bg-white'}`}>
               안 했어요
             </button>
           </div>
         </div>
 
         {/* 메모 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-6">
+        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-6">
           <p className="text-sm font-medium mb-2">메모 (선택)</p>
           <textarea value={memo} onChange={e => setMemo(e.target.value)}
-            className="w-full text-sm text-gray-600 resize-none outline-none"
+            className="w-full text-sm text-gray-600 resize-none outline-none bg-transparent"
             rows={3} placeholder="한 줄 메모..." />
         </div>
 
         <button onClick={handleSubmit} disabled={loading || saved}
-          className="w-full bg-violet-500 text-white rounded-2xl py-4 font-medium text-sm">
+          className={`w-full text-white rounded-2xl py-4 font-medium text-sm ${style.button}`}>
           {saved ? '저장됐어요 🎉' : loading ? '저장 중...' : existingId ? '수정 저장하기' : '기록 저장하기'}
         </button>
       </div>
