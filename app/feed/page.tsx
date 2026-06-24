@@ -4,17 +4,17 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 export const MEMBERS = [
-  { id: '1', nickname: '현경' },
-  { id: '2', nickname: '승수' },
-  { id: '3', nickname: '우정' },
-  { id: '4', nickname: '길성' },
+  { id: '1', nickname: '우정' },
+  { id: '2', nickname: '현경' },
+  { id: '3', nickname: '길성' },
+  { id: '4', nickname: '승수' },
 ]
 
 export const avatarColors = [
-  'bg-violet-100 text-violet-700',
   'bg-teal-100 text-teal-700',
-  'bg-orange-100 text-orange-700',
+  'bg-violet-100 text-violet-700',
   'bg-blue-100 text-blue-700',
+  'bg-orange-100 text-orange-700',
 ]
 
 export function TabBar({ active }: { active: string }) {
@@ -88,7 +88,6 @@ export default function FeedPage() {
   const weekLabel = () => {
     if (weekOffset === 0) return '이번 주'
     if (weekOffset === -1) return '지난 주'
-    if (weekOffset === -2) return '2주 전'
     return `${Math.abs(weekOffset)}주 전`
   }
 
@@ -110,7 +109,6 @@ export default function FeedPage() {
       <div className="max-w-lg mx-auto px-4 py-6">
         <h1 className="text-xl font-semibold mb-4">🥗 수다단 기록</h1>
 
-        {/* 주 이동 */}
         <div className="flex items-center justify-between mb-3">
           <button onClick={() => { setWeekOffset(w => w - 1); setSelectedDate('') }}
             className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 text-lg">←</button>
@@ -119,7 +117,6 @@ export default function FeedPage() {
             className={`w-9 h-9 flex items-center justify-center rounded-xl border text-lg ${weekOffset < 0 ? 'border-gray-200 text-gray-500' : 'border-gray-100 text-gray-200 cursor-not-allowed'}`}>→</button>
         </div>
 
-        {/* 날짜 탭 */}
         <div className="flex gap-1 mb-6 bg-white rounded-2xl border border-gray-100 p-2">
           {weekDates.map((d, i) => {
             const dateStr = d.toISOString().split('T')[0]
@@ -136,7 +133,6 @@ export default function FeedPage() {
           })}
         </div>
 
-        {/* 멤버별 현황 */}
         {selectedDate ? (
           <>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">

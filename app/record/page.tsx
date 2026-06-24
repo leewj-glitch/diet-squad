@@ -6,6 +6,7 @@ import { TabBar, MEMBERS } from '../feed/page'
 
 export default function RecordPage() {
   const [member, setMember] = useState<any>(MEMBERS[0])
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [mealType, setMealType] = useState<'clean' | 'normal' | 'pig'>('clean')
   const [exerciseDone, setExerciseDone] = useState(false)
   const [exerciseMinutes, setExerciseMinutes] = useState(0)
@@ -23,16 +24,18 @@ export default function RecordPage() {
     const parsed = JSON.parse(m)
     const found = MEMBERS.find(mem => mem.id === parsed.id) || MEMBERS[0]
     setMember(found)
-    loadTodayRecord(found.id)
   }, [])
 
-  const loadTodayRecord = async (memberId: string) => {
-    const today = new Date().toISOString().split('T')[0]
+  useEffect(() => {
+    if (member && selectedDate) loadRecord(member.id, selectedDate)
+  }, [member, selectedDate])
+
+  const loadRecord = async (memberId: string, date: string) => {
     const { data } = await supabase
       .from('daily_records')
       .select('*')
       .eq('member_id', memberId)
-      .eq('date', today)
+      .eq('date', date)
       .single()
     if (data) {
       setExistingId(data.id)
@@ -56,16 +59,14 @@ export default function RecordPage() {
   const handleMemberChange = (m: any) => {
     localStorage.setItem('member', JSON.stringify(m))
     setMember(m)
-    loadTodayRecord(m.id)
   }
 
   const handleSubmit = async () => {
     if (!member) return
     setLoading(true)
-    const today = new Date().toISOString().split('T')[0]
     const { error } = await supabase.from('daily_records').upsert({
       member_id: member.id,
-      date: today,
+      date: selectedDate,
       meal_type: mealType,
       exercise_done: exerciseDone,
       exercise_minutes: exerciseMinutes,
@@ -74,7 +75,6 @@ export default function RecordPage() {
       memo,
     }, { onConflict: 'member_id,date' })
     if (error) {
-      console.error(error)
       alert('저장 실패: ' + error.message)
     } else {
       setSaved(true)
@@ -85,7 +85,7 @@ export default function RecordPage() {
 
   const handleDelete = async () => {
     if (!existingId) return
-    if (!confirm('오늘 기록을 삭제할까요?')) return
+    if (!confirm('이 날 기록을 삭제할까요?')) return
     await supabase.from('daily_records').delete().eq('id', existingId)
     setExistingId(null)
     setMealType('clean')
@@ -97,12 +97,13 @@ export default function RecordPage() {
   }
 
   const colors = ['bg-violet-500', 'bg-teal-500', 'bg-orange-500', 'bg-blue-500']
+  const today = new Date().toISOString().split('T')[0]
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="max-w-lg mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold">오늘 기록</h1>
+          <h1 className="text-xl font-semibold">기록</h1>
           {existingId && (
             <button onClick={handleDelete} className="text-red-400 text-sm border border-red-200 px-3 py-1 rounded-xl">삭제</button>
           )}
@@ -110,7 +111,7 @@ export default function RecordPage() {
 
         {existingId && (
           <div className="bg-violet-50 border border-violet-100 rounded-2xl px-4 py-3 mb-4 text-sm text-violet-700">
-            오늘 기록이 있어요. 수정 후 저장하면 덮어써요 ✏️
+            이미 기록이 있어요. 수정 후 저장하면 덮어써요 ✏️
           </div>
         )}
 
@@ -125,6 +126,18 @@ export default function RecordPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 날짜 선택 */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+          <p className="text-sm font-medium mb-3">날짜 선택</p>
+          <input
+            type="date"
+            value={selectedDate}
+            max={today}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm"
+          />
         </div>
 
         {/* 저녁 식단 */}
@@ -199,7 +212,7 @@ export default function RecordPage() {
           <p className="text-sm font-medium mb-2">메모 (선택)</p>
           <textarea value={memo} onChange={e => setMemo(e.target.value)}
             className="w-full text-sm text-gray-600 resize-none outline-none"
-            rows={3} placeholder="오늘 한 줄 메모..." />
+            rows={3} placeholder="한 줄 메모..." />
         </div>
 
         <button onClick={handleSubmit} disabled={loading || saved}

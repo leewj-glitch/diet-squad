@@ -8,14 +8,15 @@ export default function WeeklyPage() {
   const [records, setRecords] = useState<any[]>([])
   const [fines, setFines] = useState<any[]>([])
   const [selected, setSelected] = useState(MEMBERS[0])
+  const [weekOffset, setWeekOffset] = useState(0)
   const router = useRouter()
 
-  const getWeekStart = () => {
+  const getWeekStart = (offset = 0) => {
     const d = new Date()
     const day = d.getDay()
     const diff = day === 0 ? -6 : 1 - day
     const monday = new Date(d)
-    monday.setDate(d.getDate() + diff)
+    monday.setDate(d.getDate() + diff + offset * 7)
     return monday.toISOString().split('T')[0]
   }
 
@@ -25,20 +26,36 @@ export default function WeeklyPage() {
     return d.toISOString().split('T')[0]
   }
 
-  const weekStart = getWeekStart()
+  const weekStart = getWeekStart(weekOffset)
   const weekEnd = getWeekEnd(weekStart)
 
   useEffect(() => {
     const m = localStorage.getItem('member')
     if (!m) { router.push('/'); return }
     fetchData()
-  }, [])
+  }, [weekOffset])
 
   const fetchData = async () => {
     const { data: r } = await supabase.from('daily_records').select('*').gte('date', weekStart).lte('date', weekEnd)
     const { data: f } = await supabase.from('fines').select('*').eq('week_start', weekStart)
     setRecords(r || [])
     setFines(f || [])
+  }
+
+  const getWeekDates = () => {
+    const start = new Date(weekStart)
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      return d.toISOString().split('T')[0]
+    })
+  }
+
+  const mealEmoji = (type: string) => {
+    if (type === 'clean') return '🥗'
+    if (type === 'normal') return '🍚'
+    if (type === 'pig') return '🐷'
+    return ''
   }
 
   const calcFine = (memberId: string) => {
@@ -56,33 +73,80 @@ export default function WeeklyPage() {
     return { cleanCount, normalCount, pigCount, exerciseCount, snackTotal, drinkCount, mealFine, exerciseFine, snackFine, total }
   }
 
-  const markPaid = async (memberId: string) => {
+  const togglePaid = async (memberId: string) => {
     const fine = calcFine(memberId)
+    const fineRecord = fines.find(f => f.member_id === memberId)
+    const newPaid = !fineRecord?.is_paid
     await supabase.from('fines').upsert({
       member_id: memberId, week_start: weekStart,
       meal_fine: fine.mealFine, exercise_fine: fine.exerciseFine,
       snack_fine: fine.snackFine, total_fine: fine.total,
-      is_paid: true, paid_at: new Date().toISOString()
+      is_paid: newPaid,
+      paid_at: newPaid ? new Date().toISOString() : null
     }, { onConflict: 'member_id,week_start' })
     fetchData()
   }
 
   const fine = calcFine(selected.id)
   const fineRecord = fines.find(f => f.member_id === selected.id)
+  const weekDates = getWeekDates()
+  const dayLabels = ['월', '화', '수', '목', '금', '토', '일']
+
+  const weekLabel = () => {
+    if (weekOffset === 0) return '이번 주'
+    if (weekOffset === -1) return '지난 주'
+    return `${Math.abs(weekOffset)}주 전`
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="max-w-lg mx-auto px-4 py-6">
-        <h1 className="text-xl font-semibold mb-1">이번 주 현황</h1>
-        <p className="text-xs text-gray-400 mb-5">{weekStart} ~ {weekEnd}</p>
 
-        <div className="flex gap-2 mb-6">
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-xl font-semibold">주간 현황</h1>
+        </div>
+        <div className="flex items-center justify-between mb-5">
+          <button onClick={() => setWeekOffset(w => w - 1)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 text-lg">←</button>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">{weekLabel()}</p>
+            <p className="text-xs text-gray-400">{weekStart} ~ {weekEnd}</p>
+          </div>
+          <button onClick={() => { if (weekOffset < 0) setWeekOffset(w => w + 1) }}
+            className={`w-9 h-9 flex items-center justify-center rounded-xl border text-lg ${weekOffset < 0 ? 'border-gray-200 text-gray-500' : 'border-gray-100 text-gray-200 cursor-not-allowed'}`}>→</button>
+        </div>
+
+        <div className="flex gap-2 mb-4">
           {MEMBERS.map(m => (
             <button key={m.id} onClick={() => setSelected(m)}
               className={`flex-1 py-2 rounded-xl text-sm font-medium ${selected.id === m.id ? 'bg-violet-500 text-white' : 'bg-white border border-gray-200 text-gray-500'}`}>
               {m.nickname}
             </button>
           ))}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+          <p className="text-xs text-gray-400 mb-3">이번 주 기록</p>
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {weekDates.map((date, i) => {
+              const r = records.find(r => r.member_id === selected.id && r.date === date)
+              return (
+                <div key={date} className="flex flex-col items-center gap-0.5">
+                  <span className="text-xs text-gray-300 mb-1">{dayLabels[i]}</span>
+                  <span className="text-lg">{r ? mealEmoji(r.meal_type) : '　'}</span>
+                  <span className="text-sm">{r?.exercise_done ? '💪' : '　'}</span>
+                  <span className="text-sm">{r && r.snack_count > 0 ? '🍪' : '　'}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex gap-3 mt-3 pt-3 border-t border-gray-50 flex-wrap">
+            <span className="text-xs text-gray-400">🥗 클린</span>
+            <span className="text-xs text-gray-400">🍚 일반</span>
+            <span className="text-xs text-gray-400">🐷 돼지</span>
+            <span className="text-xs text-gray-400">💪 운동</span>
+            <span className="text-xs text-gray-400">🍪 간식</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -120,26 +184,24 @@ export default function WeeklyPage() {
               </p>
             </div>
             {fine.total > 0 && (
-              fineRecord?.is_paid
-                ? <span className="bg-green-50 text-green-600 text-sm px-4 py-2 rounded-xl font-medium">납부 완료 ✓</span>
-                : <button onClick={() => markPaid(selected.id)}
-                    className="bg-violet-500 text-white text-sm px-4 py-2 rounded-xl font-medium">
-                    납부 완료
-                  </button>
+              <button
+                onClick={() => togglePaid(selected.id)}
+                className={`text-sm px-4 py-2 rounded-xl font-medium ${fineRecord?.is_paid ? 'bg-green-50 text-green-600' : 'bg-violet-500 text-white'}`}>
+                {fineRecord?.is_paid ? '납부 완료 ✓ (취소)' : '납부 완료'}
+              </button>
             )}
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-sm font-medium mb-3">음주 현황 ({fine.drinkCount}회)</p>
+          <p className="text-sm font-medium mb-3">음주 ({fine.drinkCount}회)</p>
           <div className="flex gap-2 flex-wrap">
-            {Array.from({ length: Math.max(6, fine.drinkCount) }).map((_, i) => (
-              <div key={i} className={`w-9 h-9 rounded-full flex items-center justify-center text-base ${i < fine.drinkCount ? (i < 6 ? 'bg-orange-100' : 'bg-red-100') : 'bg-gray-100'}`}>
+            {Array.from({ length: Math.max(4, fine.drinkCount) }).map((_, i) => (
+              <div key={i} className={`w-9 h-9 rounded-full flex items-center justify-center text-base ${i < fine.drinkCount ? 'bg-orange-100' : 'bg-gray-100'}`}>
                 {i < fine.drinkCount ? '🍺' : ''}
               </div>
             ))}
           </div>
-          <p className="text-xs text-gray-400 mt-2">이번 주 {fine.drinkCount}회 (월 한도 6회)</p>
         </div>
       </div>
       <TabBar active="weekly" />
