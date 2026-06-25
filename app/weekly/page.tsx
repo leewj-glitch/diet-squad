@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { TabBar, MEMBERS, avatarColors } from '../feed/page'
+import { TabBar, MEMBERS, avatarColors, getWeekDates } from '../feed/page'
 
 export default function WeeklyPage() {
   const [records, setRecords] = useState<any[]>([])
@@ -11,23 +11,9 @@ export default function WeeklyPage() {
   const [weekOffset, setWeekOffset] = useState(0)
   const router = useRouter()
 
-  const getWeekStart = (offset = 0) => {
-    const d = new Date()
-    const day = d.getDay()
-    const diff = day === 0 ? -6 : 1 - day
-    const monday = new Date(d)
-    monday.setDate(d.getDate() + diff + offset * 7)
-    return monday.toISOString().split('T')[0]
-  }
-
-  const getWeekEnd = (start: string) => {
-    const d = new Date(start)
-    d.setDate(d.getDate() + 6)
-    return d.toISOString().split('T')[0]
-  }
-
-  const weekStart = getWeekStart(weekOffset)
-  const weekEnd = getWeekEnd(weekStart)
+  const weekDates = getWeekDates(weekOffset)
+  const weekStart = weekDates[0]
+  const weekEnd = weekDates[6]
 
   useEffect(() => {
     const m = localStorage.getItem('member')
@@ -42,15 +28,6 @@ export default function WeeklyPage() {
     setAllFines(f || [])
   }
 
-  const getWeekDates = () => {
-    const start = new Date(weekStart)
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start)
-      d.setDate(start.getDate() + i)
-      return d.toISOString().split('T')[0]
-    })
-  }
-
   const mealEmoji = (type: string) => {
     if (type === 'clean') return '🥗'
     if (type === 'normal') return '🍚'
@@ -62,15 +39,19 @@ export default function WeeklyPage() {
     const mr = records.filter(r => r.member_id === memberId)
     const cleanCount = mr.filter(r => r.meal_type === 'clean').length
     const normalCount = mr.filter(r => r.meal_type === 'normal').length
-    const pigCount = mr.filter(r => r.meal_type === 'pig').length
+    const goodMealCount = cleanCount + normalCount
     const exerciseCount = mr.filter(r => r.exercise_done && r.exercise_minutes >= 30).length
     const snackTotal = mr.reduce((a, r) => a + (r.snack_count || 0), 0)
     const drinkCount = mr.filter(r => r.drink_done).length
-    const mealFine = (Math.max(0, 2 - cleanCount) + Math.max(0, 3 - normalCount)) * 1000
+
+    const cleanFine = Math.max(0, 2 - cleanCount) * 1000
+    const mealFine = Math.max(0, 5 - goodMealCount) * 1000
+    const totalMealFine = Math.max(cleanFine, mealFine)
     const exerciseFine = Math.max(0, 4 - exerciseCount) * 2000
     const snackFine = Math.max(0, snackTotal - 1) * 1000
-    const total = mealFine + exerciseFine + snackFine
-    return { cleanCount, normalCount, pigCount, exerciseCount, snackTotal, drinkCount, mealFine, exerciseFine, snackFine, total }
+    const total = totalMealFine + exerciseFine + snackFine
+
+    return { cleanCount, normalCount, goodMealCount, exerciseCount, snackTotal, drinkCount, totalMealFine, exerciseFine, snackFine, total }
   }
 
   const getAccumulatedFine = (memberId: string) => {
@@ -86,8 +67,10 @@ export default function WeeklyPage() {
     const newPaid = !fineRecord?.is_paid
     await supabase.from('fines').upsert({
       member_id: memberId, week_start: weekStart,
-      meal_fine: fine.mealFine, exercise_fine: fine.exerciseFine,
-      snack_fine: fine.snackFine, total_fine: fine.total,
+      meal_fine: fine.totalMealFine,
+      exercise_fine: fine.exerciseFine,
+      snack_fine: fine.snackFine,
+      total_fine: fine.total,
       is_paid: newPaid,
       paid_at: newPaid ? new Date().toISOString() : null
     }, { onConflict: 'member_id,week_start' })
@@ -97,7 +80,6 @@ export default function WeeklyPage() {
   const fine = calcFine(selected.id)
   const accumulated = getAccumulatedFine(selected.id)
   const fineRecord = allFines.find(f => f.member_id === selected.id && f.week_start === weekStart)
-  const weekDates = getWeekDates()
   const dayLabels = ['월', '화', '수', '목', '금', '토', '일']
 
   const weekLabel = () => {
@@ -124,7 +106,7 @@ export default function WeeklyPage() {
             className={`w-9 h-9 flex items-center justify-center rounded-xl border text-lg ${weekOffset < 0 ? 'border-gray-200 text-gray-500' : 'border-gray-100 text-gray-200 cursor-not-allowed'}`}>→</button>
         </div>
 
-        {/* 4명 벌금 요약 카드 */}
+        {/* 4명 벌금 요약 */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
           <p className="text-xs text-gray-400 mb-3">{weekLabel()} 벌금 요약</p>
           <div className="grid grid-cols-2 gap-3">
@@ -186,25 +168,37 @@ export default function WeeklyPage() {
 
         {/* 통계 카드 */}
         <div className="grid grid-cols-2 gap-3 mb-4">
-          {[
-            { label: '클린식', count: fine.cleanCount, target: 2, fine: Math.max(0, 2 - fine.cleanCount) * 1000 },
-            { label: '일반식', count: fine.normalCount, target: 3, fine: Math.max(0, 3 - fine.normalCount) * 1000 },
-            { label: '운동 30분↑', count: fine.exerciseCount, target: 4, fine: fine.exerciseFine },
-            { label: '간식', count: fine.snackTotal, target: 1, fine: fine.snackFine },
-          ].map(item => (
-            <div key={item.label} className="bg-white rounded-2xl border border-gray-100 p-4">
-              <p className="text-xs text-gray-400 mb-1">{item.label}</p>
-              <p className="text-2xl font-semibold">
-                {item.count}<span className="text-sm text-gray-300 font-normal">/{item.target}</span>
-              </p>
-              {item.fine > 0
-                ? <p className="text-xs text-red-400 mt-1">−{item.fine.toLocaleString()}원</p>
-                : <p className="text-xs text-green-500 mt-1">✓</p>}
-            </div>
-          ))}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4">
+            <p className="text-xs text-gray-400 mb-1">클린식</p>
+            <p className="text-2xl font-semibold">{fine.cleanCount}<span className="text-sm text-gray-300 font-normal">/2↑</span></p>
+            {fine.cleanCount < 2
+              ? <p className="text-xs text-red-400 mt-1">−{(2 - fine.cleanCount) * 1000}원</p>
+              : <p className="text-xs text-green-500 mt-1">✓</p>}
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 p-4">
+            <p className="text-xs text-gray-400 mb-1">클린+일반식</p>
+            <p className="text-2xl font-semibold">{fine.goodMealCount}<span className="text-sm text-gray-300 font-normal">/5↑</span></p>
+            {fine.goodMealCount < 5
+              ? <p className="text-xs text-red-400 mt-1">−{(5 - fine.goodMealCount) * 1000}원</p>
+              : <p className="text-xs text-green-500 mt-1">✓</p>}
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 p-4">
+            <p className="text-xs text-gray-400 mb-1">운동 30분↑</p>
+            <p className="text-2xl font-semibold">{fine.exerciseCount}<span className="text-sm text-gray-300 font-normal">/4</span></p>
+            {fine.exerciseFine > 0
+              ? <p className="text-xs text-red-400 mt-1">−{fine.exerciseFine.toLocaleString()}원</p>
+              : <p className="text-xs text-green-500 mt-1">✓</p>}
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 p-4">
+            <p className="text-xs text-gray-400 mb-1">간식</p>
+            <p className="text-2xl font-semibold">{fine.snackTotal}<span className="text-sm text-gray-300 font-normal">회</span></p>
+            {fine.snackFine > 0
+              ? <p className="text-xs text-red-400 mt-1">−{fine.snackFine.toLocaleString()}원</p>
+              : <p className="text-xs text-green-500 mt-1">✓</p>}
+          </div>
         </div>
 
-        {/* 이번 주 벌금 + 납부 */}
+        {/* 이번 주 벌금 */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
           <div className="flex justify-between items-center">
             <div>
@@ -216,7 +210,7 @@ export default function WeeklyPage() {
             {fine.total > 0 && (
               <button onClick={() => togglePaid(selected.id)}
                 className={`text-sm px-4 py-2 rounded-xl font-medium ${fineRecord?.is_paid ? 'bg-green-50 text-green-600' : 'bg-violet-500 text-white'}`}>
-                {fineRecord?.is_paid ? '납부 완료 ✓\n(취소)' : '납부 완료'}
+                {fineRecord?.is_paid ? '납부완료 ✓\n(취소)' : '납부 완료'}
               </button>
             )}
           </div>

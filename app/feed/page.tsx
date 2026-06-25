@@ -17,6 +17,26 @@ export const avatarColors = [
   'bg-sky-100 text-sky-500',
 ]
 
+export function getKSTDateStr() {
+  const now = new Date()
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().split('T')[0]
+}
+
+export function getWeekDates(weekOffset: number) {
+  const now = new Date()
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  const day = kst.getUTCDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const monday = new Date(kst)
+  monday.setUTCDate(kst.getUTCDate() + diff + weekOffset * 7)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setUTCDate(monday.getUTCDate() + i)
+    return d.toISOString().split('T')[0]
+  })
+}
+
 export function TabBar({ active }: { active: string }) {
   const router = useRouter()
   const tabs = [
@@ -38,23 +58,10 @@ export function TabBar({ active }: { active: string }) {
   )
 }
 
-function getWeekDates(weekOffset: number) {
-  const today = new Date()
-  const day = today.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(today)
-  monday.setDate(today.getDate() + diff + weekOffset * 7)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    return d
-  })
-}
-
 export default function FeedPage() {
   const [records, setRecords] = useState<any[]>([])
   const [weekOffset, setWeekOffset] = useState(0)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(getKSTDateStr())
   const router = useRouter()
 
   useEffect(() => {
@@ -68,13 +75,11 @@ export default function FeedPage() {
 
   const fetchRecords = async () => {
     const dates = getWeekDates(weekOffset)
-    const start = dates[0].toISOString().split('T')[0]
-    const end = dates[6].toISOString().split('T')[0]
     const { data } = await supabase
       .from('daily_records')
       .select('*')
-      .gte('date', start)
-      .lte('date', end)
+      .gte('date', dates[0])
+      .lte('date', dates[6])
     setRecords(data || [])
   }
 
@@ -88,7 +93,7 @@ export default function FeedPage() {
 
   const weekDates = getWeekDates(weekOffset)
   const dayLabels = ['월', '화', '수', '목', '금', '토', '일']
-  const today = new Date().toISOString().split('T')[0]
+  const today = getKSTDateStr()
 
   const weekLabel = () => {
     if (weekOffset === 0) return '이번 주'
@@ -102,6 +107,7 @@ export default function FeedPage() {
     if (type === 'pig') return '돼지식 🐷'
     return '—'
   }
+
   const mealColor = (type: string) => {
     if (type === 'clean') return 'text-green-600 font-medium'
     if (type === 'normal') return 'text-blue-600 font-medium'
@@ -123,15 +129,15 @@ export default function FeedPage() {
         </div>
 
         <div className="flex gap-1 mb-3 bg-white rounded-2xl border border-gray-100 p-2">
-          {weekDates.map((d, i) => {
-            const dateStr = d.toISOString().split('T')[0]
+          {weekDates.map((dateStr, i) => {
             const isSelected = selectedDate === dateStr
             const isToday = dateStr === today
+            const dayNum = parseInt(dateStr.split('-')[2])
             return (
               <button key={dateStr} onClick={() => setSelectedDate(dateStr)}
                 className={`flex-1 flex flex-col items-center py-2 rounded-xl text-xs transition-all ${isSelected ? 'bg-violet-500 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
                 <span className="mb-1">{dayLabels[i]}</span>
-                <span className={`font-semibold text-sm ${isToday && !isSelected ? 'text-violet-500' : ''}`}>{d.getDate()}</span>
+                <span className={`font-semibold text-sm ${isToday && !isSelected ? 'text-violet-500' : ''}`}>{dayNum}</span>
                 {isToday && <span className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-violet-400'}`} />}
               </button>
             )

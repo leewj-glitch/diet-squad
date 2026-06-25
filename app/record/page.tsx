@@ -2,32 +2,19 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { TabBar, MEMBERS } from '../feed/page'
+import { TabBar, MEMBERS, getKSTDateStr, getWeekDates } from '../feed/page'
 
 const memberStyles = {
-  '1': { bg: 'bg-purple-50', button: 'bg-purple-400', ring: 'ring-purple-300' },
-  '2': { bg: 'bg-yellow-50', button: 'bg-yellow-300', ring: 'ring-yellow-200' },
-  '3': { bg: 'bg-pink-50', button: 'bg-pink-300', ring: 'ring-pink-200' },
-  '4': { bg: 'bg-sky-50', button: 'bg-sky-300', ring: 'ring-sky-200' },
-}
-
-function getWeekDates(offset: number) {
-  const today = new Date()
-  const day = today.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(today)
-  monday.setDate(today.getDate() + diff + offset * 7)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    return d
-  })
+  '1': { bg: 'bg-purple-200', button: 'bg-purple-400', ring: 'ring-purple-300' },
+  '2': { bg: 'bg-yellow-200', button: 'bg-yellow-300', ring: 'ring-yellow-200' },
+  '3': { bg: 'bg-pink-200', button: 'bg-pink-300', ring: 'ring-pink-200' },
+  '4': { bg: 'bg-sky-200', button: 'bg-sky-300', ring: 'ring-sky-200' },
 }
 
 export default function RecordPage() {
   const [member, setMember] = useState<any>(MEMBERS[0])
   const [weekOffset, setWeekOffset] = useState(0)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(getKSTDateStr())
   const [mealType, setMealType] = useState<'clean' | 'normal' | 'pig'>('clean')
   const [exerciseDone, setExerciseDone] = useState(false)
   const [exerciseMinutes, setExerciseMinutes] = useState(30)
@@ -124,7 +111,7 @@ export default function RecordPage() {
   }
 
   const style = memberStyles[member?.id as keyof typeof memberStyles] || memberStyles['1']
-  const today = new Date().toISOString().split('T')[0]
+  const today = getKSTDateStr()
   const weekDates = getWeekDates(weekOffset)
   const dayLabels = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -166,29 +153,29 @@ export default function RecordPage() {
           </div>
         </div>
 
-        {/* 날짜 선택 — 주간 탭 */}
+        {/* 날짜 선택 */}
         <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <button onClick={() => setWeekOffset(w => w - 1)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 bg-white">←</button>
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 bg-white text-sm">←</button>
             <span className="text-xs font-medium text-gray-500">{weekLabel()}</span>
             <button onClick={() => { if (weekOffset < 0) setWeekOffset(w => w + 1) }}
               className={`w-8 h-8 flex items-center justify-center rounded-lg border text-sm ${weekOffset < 0 ? 'border-gray-200 text-gray-500 bg-white' : 'border-gray-100 text-gray-200 cursor-not-allowed'}`}>→</button>
           </div>
           <div className="flex gap-1">
-            {weekDates.map((d, i) => {
-              const dateStr = d.toISOString().split('T')[0]
+            {weekDates.map((dateStr, i) => {
               const isSelected = selectedDate === dateStr
               const isToday = dateStr === today
               const isFuture = dateStr > today
+              const dayNum = parseInt(dateStr.split('-')[2])
               return (
                 <button key={dateStr}
                   onClick={() => { if (!isFuture) setSelectedDate(dateStr) }}
                   disabled={isFuture}
                   className={`flex-1 flex flex-col items-center py-2 rounded-xl text-xs transition-all
-                    ${isSelected ? 'bg-violet-500 text-white' : isFuture ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    ${isSelected ? 'bg-violet-500 text-white' : isFuture ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:bg-white/50'}`}>
                   <span className="mb-1">{dayLabels[i]}</span>
-                  <span className={`font-semibold text-sm ${isToday && !isSelected ? 'text-violet-500' : ''}`}>{d.getDate()}</span>
+                  <span className={`font-semibold text-sm ${isToday && !isSelected ? 'text-violet-500' : ''}`}>{dayNum}</span>
                   {isToday && <span className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-violet-400'}`} />}
                 </button>
               )
@@ -217,7 +204,7 @@ export default function RecordPage() {
         <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">운동</p>
           <div className="flex gap-2 mb-3">
-            <button onClick={() => { setExerciseDone(true); setExerciseMinutes(30) }}
+            <button onClick={() => { setExerciseDone(true); if (!exerciseDone) setExerciseMinutes(30) }}
               className={`flex-1 py-3 rounded-xl text-sm font-medium ${exerciseDone ? 'bg-violet-400 text-white' : 'border border-gray-200 text-gray-400 bg-white'}`}>
               💪 했어요
             </button>
@@ -228,10 +215,10 @@ export default function RecordPage() {
           </div>
           {exerciseDone && (
             <div className="flex items-center gap-4">
-              <button onClick={() => setExerciseMinutes(m => Math.max(10, m - 10))}
+              <button onClick={() => setExerciseMinutes(m => Math.max(5, m - 5))}
                 className="w-10 h-10 border border-gray-200 rounded-xl text-xl bg-white">−</button>
               <span className="text-lg font-semibold flex-1 text-center">{exerciseMinutes}분</span>
-              <button onClick={() => setExerciseMinutes(m => m + 10)}
+              <button onClick={() => setExerciseMinutes(m => m + 5)}
                 className="w-10 h-10 border border-gray-200 rounded-xl text-xl bg-white">+</button>
             </div>
           )}
