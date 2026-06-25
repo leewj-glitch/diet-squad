@@ -78,6 +78,11 @@ export default function FeedPage() {
     setRecords(data || [])
   }
 
+  const goToRecord = (date: string) => {
+    localStorage.setItem('selectedFeedDate', date)
+    router.push('/record')
+  }
+
   const getRecord = (memberId: string, date: string) =>
     records.find(r => r.member_id === memberId && r.date === date)
 
@@ -117,7 +122,7 @@ export default function FeedPage() {
             className={`w-9 h-9 flex items-center justify-center rounded-xl border text-lg ${weekOffset < 0 ? 'border-gray-200 text-gray-500' : 'border-gray-100 text-gray-200 cursor-not-allowed'}`}>→</button>
         </div>
 
-        <div className="flex gap-1 mb-6 bg-white rounded-2xl border border-gray-100 p-2">
+        <div className="flex gap-1 mb-3 bg-white rounded-2xl border border-gray-100 p-2">
           {weekDates.map((d, i) => {
             const dateStr = d.toISOString().split('T')[0]
             const isSelected = selectedDate === dateStr
@@ -132,6 +137,13 @@ export default function FeedPage() {
             )
           })}
         </div>
+
+        {selectedDate && (
+          <button onClick={() => goToRecord(selectedDate)}
+            className="w-full text-center text-xs text-violet-500 bg-violet-50 border border-violet-100 rounded-xl py-2 mb-5">
+            ✏️ {selectedDate.slice(5).replace('-', '/')} 기록하러 가기
+          </button>
+        )}
 
         {selectedDate ? (
           <>

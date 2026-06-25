@@ -11,12 +11,26 @@ const memberStyles = {
   '4': { bg: 'bg-sky-50', button: 'bg-sky-300', ring: 'ring-sky-200' },
 }
 
+function getWeekDates(offset: number) {
+  const today = new Date()
+  const day = today.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const monday = new Date(today)
+  monday.setDate(today.getDate() + diff + offset * 7)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
+}
+
 export default function RecordPage() {
   const [member, setMember] = useState<any>(MEMBERS[0])
+  const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [mealType, setMealType] = useState<'clean' | 'normal' | 'pig'>('clean')
   const [exerciseDone, setExerciseDone] = useState(false)
-  const [exerciseMinutes, setExerciseMinutes] = useState(0)
+  const [exerciseMinutes, setExerciseMinutes] = useState(30)
   const [snackCount, setSnackCount] = useState(0)
   const [drinkDone, setDrinkDone] = useState(false)
   const [memo, setMemo] = useState('')
@@ -31,6 +45,12 @@ export default function RecordPage() {
     const parsed = JSON.parse(m)
     const found = MEMBERS.find(mem => mem.id === parsed.id) || MEMBERS[0]
     setMember(found)
+
+    const savedDate = localStorage.getItem('selectedFeedDate')
+    if (savedDate) {
+      setSelectedDate(savedDate)
+      localStorage.removeItem('selectedFeedDate')
+    }
   }, [])
 
   useEffect(() => {
@@ -48,7 +68,7 @@ export default function RecordPage() {
       setExistingId(data.id)
       setMealType(data.meal_type || 'clean')
       setExerciseDone(data.exercise_done || false)
-      setExerciseMinutes(data.exercise_minutes || 0)
+      setExerciseMinutes(data.exercise_minutes || 30)
       setSnackCount(data.snack_count || 0)
       setDrinkDone(data.drink_done || false)
       setMemo(data.memo || '')
@@ -56,7 +76,7 @@ export default function RecordPage() {
       setExistingId(null)
       setMealType('clean')
       setExerciseDone(false)
-      setExerciseMinutes(0)
+      setExerciseMinutes(30)
       setSnackCount(0)
       setDrinkDone(false)
       setMemo('')
@@ -97,7 +117,7 @@ export default function RecordPage() {
     setExistingId(null)
     setMealType('clean')
     setExerciseDone(false)
-    setExerciseMinutes(0)
+    setExerciseMinutes(30)
     setSnackCount(0)
     setDrinkDone(false)
     setMemo('')
@@ -105,6 +125,14 @@ export default function RecordPage() {
 
   const style = memberStyles[member?.id as keyof typeof memberStyles] || memberStyles['1']
   const today = new Date().toISOString().split('T')[0]
+  const weekDates = getWeekDates(weekOffset)
+  const dayLabels = ['월', '화', '수', '목', '금', '토', '일']
+
+  const weekLabel = () => {
+    if (weekOffset === 0) return '이번 주'
+    if (weekOffset === -1) return '지난 주'
+    return `${Math.abs(weekOffset)}주 전`
+  }
 
   return (
     <div className={`min-h-screen ${style.bg} pb-24 transition-colors duration-300`}>
@@ -138,16 +166,34 @@ export default function RecordPage() {
           </div>
         </div>
 
-        {/* 날짜 선택 */}
+        {/* 날짜 선택 — 주간 탭 */}
         <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
-          <p className="text-sm font-medium mb-3">날짜 선택</p>
-          <input
-            type="date"
-            value={selectedDate}
-            max={today}
-            onChange={e => setSelectedDate(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm bg-white"
-          />
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => setWeekOffset(w => w - 1)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 bg-white">←</button>
+            <span className="text-xs font-medium text-gray-500">{weekLabel()}</span>
+            <button onClick={() => { if (weekOffset < 0) setWeekOffset(w => w + 1) }}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg border text-sm ${weekOffset < 0 ? 'border-gray-200 text-gray-500 bg-white' : 'border-gray-100 text-gray-200 cursor-not-allowed'}`}>→</button>
+          </div>
+          <div className="flex gap-1">
+            {weekDates.map((d, i) => {
+              const dateStr = d.toISOString().split('T')[0]
+              const isSelected = selectedDate === dateStr
+              const isToday = dateStr === today
+              const isFuture = dateStr > today
+              return (
+                <button key={dateStr}
+                  onClick={() => { if (!isFuture) setSelectedDate(dateStr) }}
+                  disabled={isFuture}
+                  className={`flex-1 flex flex-col items-center py-2 rounded-xl text-xs transition-all
+                    ${isSelected ? 'bg-violet-500 text-white' : isFuture ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:bg-gray-50'}`}>
+                  <span className="mb-1">{dayLabels[i]}</span>
+                  <span className={`font-semibold text-sm ${isToday && !isSelected ? 'text-violet-500' : ''}`}>{d.getDate()}</span>
+                  {isToday && <span className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-violet-400'}`} />}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* 저녁 식단 */}
@@ -171,20 +217,23 @@ export default function RecordPage() {
         <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
           <p className="text-sm font-medium mb-3">운동</p>
           <div className="flex gap-2 mb-3">
-            <button onClick={() => setExerciseDone(true)}
+            <button onClick={() => { setExerciseDone(true); setExerciseMinutes(30) }}
               className={`flex-1 py-3 rounded-xl text-sm font-medium ${exerciseDone ? 'bg-violet-400 text-white' : 'border border-gray-200 text-gray-400 bg-white'}`}>
               💪 했어요
             </button>
-            <button onClick={() => { setExerciseDone(false); setExerciseMinutes(0) }}
+            <button onClick={() => { setExerciseDone(false); setExerciseMinutes(30) }}
               className={`flex-1 py-3 rounded-xl text-sm font-medium ${!exerciseDone ? 'bg-gray-400 text-white' : 'border border-gray-200 text-gray-400 bg-white'}`}>
               ❌ 안 했어요
             </button>
           </div>
           {exerciseDone && (
-            <input type="number" placeholder="운동 시간 (분)"
-              value={exerciseMinutes || ''}
-              onChange={e => setExerciseMinutes(Number(e.target.value))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm bg-white" />
+            <div className="flex items-center gap-4">
+              <button onClick={() => setExerciseMinutes(m => Math.max(10, m - 10))}
+                className="w-10 h-10 border border-gray-200 rounded-xl text-xl bg-white">−</button>
+              <span className="text-lg font-semibold flex-1 text-center">{exerciseMinutes}분</span>
+              <button onClick={() => setExerciseMinutes(m => m + 10)}
+                className="w-10 h-10 border border-gray-200 rounded-xl text-xl bg-white">+</button>
+            </div>
           )}
         </div>
 

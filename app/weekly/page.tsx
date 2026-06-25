@@ -2,11 +2,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { TabBar, MEMBERS } from '../feed/page'
+import { TabBar, MEMBERS, avatarColors } from '../feed/page'
 
 export default function WeeklyPage() {
   const [records, setRecords] = useState<any[]>([])
-  const [fines, setFines] = useState<any[]>([])
+  const [allFines, setAllFines] = useState<any[]>([])
   const [selected, setSelected] = useState(MEMBERS[0])
   const [weekOffset, setWeekOffset] = useState(0)
   const router = useRouter()
@@ -37,9 +37,9 @@ export default function WeeklyPage() {
 
   const fetchData = async () => {
     const { data: r } = await supabase.from('daily_records').select('*').gte('date', weekStart).lte('date', weekEnd)
-    const { data: f } = await supabase.from('fines').select('*').eq('week_start', weekStart)
+    const { data: f } = await supabase.from('fines').select('*')
     setRecords(r || [])
-    setFines(f || [])
+    setAllFines(f || [])
   }
 
   const getWeekDates = () => {
@@ -66,16 +66,23 @@ export default function WeeklyPage() {
     const exerciseCount = mr.filter(r => r.exercise_done && r.exercise_minutes >= 30).length
     const snackTotal = mr.reduce((a, r) => a + (r.snack_count || 0), 0)
     const drinkCount = mr.filter(r => r.drink_done).length
-    const mealFine = (Math.max(0, 2 - cleanCount) + Math.max(0, 3 - normalCount) + pigCount) * 1000
-    const exerciseFine = Math.max(0, 4 - exerciseCount) * 1000
+    const mealFine = (Math.max(0, 2 - cleanCount) + Math.max(0, 3 - normalCount)) * 1000
+    const exerciseFine = Math.max(0, 4 - exerciseCount) * 2000
     const snackFine = Math.max(0, snackTotal - 1) * 1000
     const total = mealFine + exerciseFine + snackFine
     return { cleanCount, normalCount, pigCount, exerciseCount, snackTotal, drinkCount, mealFine, exerciseFine, snackFine, total }
   }
 
+  const getAccumulatedFine = (memberId: string) => {
+    const memberFines = allFines.filter(f => f.member_id === memberId)
+    const total = memberFines.reduce((a, f) => a + (f.total_fine || 0), 0)
+    const paid = memberFines.filter(f => f.is_paid).reduce((a, f) => a + (f.total_fine || 0), 0)
+    return { total, paid, unpaid: total - paid }
+  }
+
   const togglePaid = async (memberId: string) => {
     const fine = calcFine(memberId)
-    const fineRecord = fines.find(f => f.member_id === memberId)
+    const fineRecord = allFines.find(f => f.member_id === memberId && f.week_start === weekStart)
     const newPaid = !fineRecord?.is_paid
     await supabase.from('fines').upsert({
       member_id: memberId, week_start: weekStart,
@@ -88,7 +95,8 @@ export default function WeeklyPage() {
   }
 
   const fine = calcFine(selected.id)
-  const fineRecord = fines.find(f => f.member_id === selected.id)
+  const accumulated = getAccumulatedFine(selected.id)
+  const fineRecord = allFines.find(f => f.member_id === selected.id && f.week_start === weekStart)
   const weekDates = getWeekDates()
   const dayLabels = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -116,6 +124,32 @@ export default function WeeklyPage() {
             className={`w-9 h-9 flex items-center justify-center rounded-xl border text-lg ${weekOffset < 0 ? 'border-gray-200 text-gray-500' : 'border-gray-100 text-gray-200 cursor-not-allowed'}`}>→</button>
         </div>
 
+        {/* 4명 벌금 요약 카드 */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
+          <p className="text-xs text-gray-400 mb-3">{weekLabel()} 벌금 요약</p>
+          <div className="grid grid-cols-2 gap-3">
+            {MEMBERS.map((m, i) => {
+              const f = calcFine(m.id)
+              const fr = allFines.find(fi => fi.member_id === m.id && fi.week_start === weekStart)
+              return (
+                <div key={m.id} className="flex items-center gap-2">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${avatarColors[i]}`}>
+                    {m.nickname[0]}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium">{m.nickname}</p>
+                    <p className={`text-sm font-semibold ${f.total > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                      {f.total > 0 ? `${f.total.toLocaleString()}원` : '없음'}
+                      {fr?.is_paid && <span className="text-xs text-green-400 font-normal ml-1">✓</span>}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 멤버 탭 */}
         <div className="flex gap-2 mb-4">
           {MEMBERS.map(m => (
             <button key={m.id} onClick={() => setSelected(m)}
@@ -125,8 +159,9 @@ export default function WeeklyPage() {
           ))}
         </div>
 
+        {/* 주간 기록 이모티콘 */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-          <p className="text-xs text-gray-400 mb-3">이번 주 기록</p>
+          <p className="text-xs text-gray-400 mb-3">{weekLabel()} 기록</p>
           <div className="grid grid-cols-7 gap-1 text-center">
             {weekDates.map((date, i) => {
               const r = records.find(r => r.member_id === selected.id && r.date === date)
@@ -149,6 +184,7 @@ export default function WeeklyPage() {
           </div>
         </div>
 
+        {/* 통계 카드 */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           {[
             { label: '클린식', count: fine.cleanCount, target: 2, fine: Math.max(0, 2 - fine.cleanCount) * 1000 },
@@ -168,13 +204,7 @@ export default function WeeklyPage() {
           ))}
         </div>
 
-        {fine.pigCount > 0 && (
-          <div className="bg-pink-50 border border-pink-100 rounded-2xl p-4 mb-4 flex justify-between items-center">
-            <span className="text-sm text-pink-700">🐷 돼지식 {fine.pigCount}회</span>
-            <span className="text-sm text-red-400 font-medium">−{(fine.pigCount * 1000).toLocaleString()}원</span>
-          </div>
-        )}
-
+        {/* 이번 주 벌금 + 납부 */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
           <div className="flex justify-between items-center">
             <div>
@@ -184,15 +214,34 @@ export default function WeeklyPage() {
               </p>
             </div>
             {fine.total > 0 && (
-              <button
-                onClick={() => togglePaid(selected.id)}
+              <button onClick={() => togglePaid(selected.id)}
                 className={`text-sm px-4 py-2 rounded-xl font-medium ${fineRecord?.is_paid ? 'bg-green-50 text-green-600' : 'bg-violet-500 text-white'}`}>
-                {fineRecord?.is_paid ? '납부 완료 ✓ (취소)' : '납부 완료'}
+                {fineRecord?.is_paid ? '납부 완료 ✓\n(취소)' : '납부 완료'}
               </button>
             )}
           </div>
         </div>
 
+        {/* 누적 벌금 */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
+          <p className="text-sm font-medium mb-3">누적 벌금</p>
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-gray-400">총 벌금</span>
+            <span className="font-medium">{accumulated.total.toLocaleString()}원</span>
+          </div>
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-gray-400">납부 완료</span>
+            <span className="text-green-500 font-medium">{accumulated.paid.toLocaleString()}원</span>
+          </div>
+          <div className="flex justify-between text-sm pt-2 border-t border-gray-50">
+            <span className="text-gray-400">미납</span>
+            <span className={`font-semibold ${accumulated.unpaid > 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {accumulated.unpaid > 0 ? `${accumulated.unpaid.toLocaleString()}원` : '없음 ✓'}
+            </span>
+          </div>
+        </div>
+
+        {/* 음주 */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
           <p className="text-sm font-medium mb-3">음주 ({fine.drinkCount}회)</p>
           <div className="flex gap-2 flex-wrap">
@@ -203,6 +252,7 @@ export default function WeeklyPage() {
             ))}
           </div>
         </div>
+
       </div>
       <TabBar active="weekly" />
     </div>
