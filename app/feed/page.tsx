@@ -58,6 +58,41 @@ export function TabBar({ active }: { active: string }) {
   )
 }
 
+export function UserHeader({ active }: { active: string }) {
+  const router = useRouter()
+  const [member, setMember] = useState<any>(null)
+
+  useEffect(() => {
+    const m = localStorage.getItem('member')
+    if (m) setMember(JSON.parse(m))
+  }, [])
+
+  const idx = MEMBERS.findIndex(m => m.id === member?.id)
+  const colors = ['bg-purple-200 text-purple-700', 'bg-yellow-200 text-yellow-700', 'bg-pink-200 text-pink-700', 'bg-sky-200 text-sky-700']
+
+  const handleLogout = () => {
+    localStorage.removeItem('member')
+    router.push('/')
+  }
+
+  if (!member) return null
+
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${colors[idx] || colors[0]}`}>
+          {member.nickname[0]}
+        </div>
+        <span className="text-sm text-gray-500">{member.nickname}으로 사용 중</span>
+      </div>
+      <button onClick={handleLogout}
+        className="text-xs text-gray-400 border border-gray-200 px-3 py-1 rounded-xl">
+        첫화면으로
+      </button>
+    </div>
+  )
+}
+
 export default function FeedPage() {
   const [records, setRecords] = useState<any[]>([])
   const [weekOffset, setWeekOffset] = useState(0)
@@ -67,9 +102,6 @@ export default function FeedPage() {
   useEffect(() => {
     const m = localStorage.getItem('member')
     if (!m) { router.push('/'); return }
-  }, [])
-
-  useEffect(() => {
     fetchRecords()
   }, [weekOffset])
 
@@ -118,6 +150,7 @@ export default function FeedPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="max-w-lg mx-auto px-4 py-6">
+        <UserHeader active="feed" />
         <h1 className="text-xl font-semibold mb-4">🥗 수다단 기록</h1>
 
         <div className="flex items-center justify-between mb-3">

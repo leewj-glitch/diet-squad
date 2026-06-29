@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { TabBar, MEMBERS, avatarColors, getWeekDates } from '../feed/page'
+import { TabBar, MEMBERS, avatarColors, getWeekDates, UserHeader } from '../feed/page'
 
 export default function WeeklyPage() {
   const [records, setRecords] = useState<any[]>([])
@@ -43,14 +43,12 @@ export default function WeeklyPage() {
     const exerciseCount = mr.filter(r => r.exercise_done && r.exercise_minutes >= 30).length
     const snackTotal = mr.reduce((a, r) => a + (r.snack_count || 0), 0)
     const drinkCount = mr.filter(r => r.drink_done).length
-
     const cleanFine = Math.max(0, 2 - cleanCount) * 1000
-    const mealFine = Math.max(0, 5 - goodMealCount) * 1000
-    const totalMealFine = Math.max(cleanFine, mealFine)
+    const mealTotalFine = Math.max(0, 5 - goodMealCount) * 1000
+    const totalMealFine = Math.max(cleanFine, mealTotalFine)
     const exerciseFine = Math.max(0, 4 - exerciseCount) * 2000
     const snackFine = Math.max(0, snackTotal - 1) * 1000
     const total = totalMealFine + exerciseFine + snackFine
-
     return { cleanCount, normalCount, goodMealCount, exerciseCount, snackTotal, drinkCount, totalMealFine, exerciseFine, snackFine, total }
   }
 
@@ -91,7 +89,7 @@ export default function WeeklyPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="max-w-lg mx-auto px-4 py-6">
-
+        <UserHeader active="weekly" />
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-xl font-semibold">주간 현황</h1>
         </div>
@@ -171,30 +169,22 @@ export default function WeeklyPage() {
           <div className="bg-white rounded-2xl border border-gray-100 p-4">
             <p className="text-xs text-gray-400 mb-1">클린식</p>
             <p className="text-2xl font-semibold">{fine.cleanCount}<span className="text-sm text-gray-300 font-normal">/2↑</span></p>
-            {fine.cleanCount < 2
-              ? <p className="text-xs text-red-400 mt-1">−{(2 - fine.cleanCount) * 1000}원</p>
-              : <p className="text-xs text-green-500 mt-1">✓</p>}
+            {fine.cleanCount < 2 ? <p className="text-xs text-red-400 mt-1">−{(2 - fine.cleanCount) * 1000}원</p> : <p className="text-xs text-green-500 mt-1">✓</p>}
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 p-4">
             <p className="text-xs text-gray-400 mb-1">클린+일반식</p>
             <p className="text-2xl font-semibold">{fine.goodMealCount}<span className="text-sm text-gray-300 font-normal">/5↑</span></p>
-            {fine.goodMealCount < 5
-              ? <p className="text-xs text-red-400 mt-1">−{(5 - fine.goodMealCount) * 1000}원</p>
-              : <p className="text-xs text-green-500 mt-1">✓</p>}
+            {fine.goodMealCount < 5 ? <p className="text-xs text-red-400 mt-1">−{(5 - fine.goodMealCount) * 1000}원</p> : <p className="text-xs text-green-500 mt-1">✓</p>}
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 p-4">
             <p className="text-xs text-gray-400 mb-1">운동 30분↑</p>
             <p className="text-2xl font-semibold">{fine.exerciseCount}<span className="text-sm text-gray-300 font-normal">/4</span></p>
-            {fine.exerciseFine > 0
-              ? <p className="text-xs text-red-400 mt-1">−{fine.exerciseFine.toLocaleString()}원</p>
-              : <p className="text-xs text-green-500 mt-1">✓</p>}
+            {fine.exerciseFine > 0 ? <p className="text-xs text-red-400 mt-1">−{fine.exerciseFine.toLocaleString()}원</p> : <p className="text-xs text-green-500 mt-1">✓</p>}
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 p-4">
             <p className="text-xs text-gray-400 mb-1">간식</p>
             <p className="text-2xl font-semibold">{fine.snackTotal}<span className="text-sm text-gray-300 font-normal">회</span></p>
-            {fine.snackFine > 0
-              ? <p className="text-xs text-red-400 mt-1">−{fine.snackFine.toLocaleString()}원</p>
-              : <p className="text-xs text-green-500 mt-1">✓</p>}
+            {fine.snackFine > 0 ? <p className="text-xs text-red-400 mt-1">−{fine.snackFine.toLocaleString()}원</p> : <p className="text-xs text-green-500 mt-1">✓</p>}
           </div>
         </div>
 
@@ -246,7 +236,6 @@ export default function WeeklyPage() {
             ))}
           </div>
         </div>
-
       </div>
       <TabBar active="weekly" />
     </div>

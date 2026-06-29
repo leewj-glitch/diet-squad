@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { TabBar, MEMBERS, getKSTDateStr, getWeekDates } from '../feed/page'
+import { TabBar, MEMBERS, getKSTDateStr, getWeekDates, UserHeader } from '../feed/page'
 
 const memberStyles = {
   '1': { bg: 'bg-purple-200', button: 'bg-purple-400', ring: 'ring-purple-300' },
@@ -12,7 +12,7 @@ const memberStyles = {
 }
 
 export default function RecordPage() {
-  const [member, setMember] = useState<any>(MEMBERS[0])
+  const [member, setMember] = useState<any>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedDate, setSelectedDate] = useState(getKSTDateStr())
   const [mealType, setMealType] = useState<'clean' | 'normal' | 'pig'>('clean')
@@ -29,9 +29,7 @@ export default function RecordPage() {
   useEffect(() => {
     const m = localStorage.getItem('member')
     if (!m) { router.push('/'); return }
-    const parsed = JSON.parse(m)
-    const found = MEMBERS.find(mem => mem.id === parsed.id) || MEMBERS[0]
-    setMember(found)
+    setMember(JSON.parse(m))
 
     const savedDate = localStorage.getItem('selectedFeedDate')
     if (savedDate) {
@@ -68,11 +66,6 @@ export default function RecordPage() {
       setDrinkDone(false)
       setMemo('')
     }
-  }
-
-  const handleMemberChange = (m: any) => {
-    localStorage.setItem('member', JSON.stringify(m))
-    setMember(m)
   }
 
   const handleSubmit = async () => {
@@ -124,6 +117,7 @@ export default function RecordPage() {
   return (
     <div className={`min-h-screen ${style.bg} pb-24 transition-colors duration-300`}>
       <div className="max-w-lg mx-auto px-4 py-6">
+        <UserHeader active="record" />
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold">기록</h1>
           {existingId && (
@@ -136,22 +130,6 @@ export default function RecordPage() {
             이미 기록이 있어요. 수정 후 저장하면 덮어써요 ✏️
           </div>
         )}
-
-        {/* 멤버 선택 */}
-        <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
-          <p className="text-sm font-medium mb-3">누구로 기록할까요?</p>
-          <div className="grid grid-cols-4 gap-2">
-            {MEMBERS.map((m) => {
-              const s = memberStyles[m.id as keyof typeof memberStyles]
-              return (
-                <button key={m.id} onClick={() => handleMemberChange(m)}
-                  className={`py-3 rounded-xl text-sm font-semibold text-white transition-all ${s.button} ${member?.id === m.id ? `opacity-100 ring-2 ring-offset-2 ${s.ring}` : 'opacity-40'}`}>
-                  {m.nickname}
-                </button>
-              )
-            })}
-          </div>
-        </div>
 
         {/* 날짜 선택 */}
         <div className="bg-white/80 rounded-2xl border border-white p-4 mb-4">
