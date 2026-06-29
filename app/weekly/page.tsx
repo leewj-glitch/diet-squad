@@ -60,14 +60,11 @@ export default function WeeklyPage() {
 
   const calcFine = (memberId: string) => calcWeekFineForRecords(records, memberId)
 
-  // 시작일부터 지금까지 주별로 나눠서 각 주 벌금 합산
-  const getAccumulatedFine = (memberId: string) => {
-    // 시작일부터 오늘까지 모든 주의 월요일 구하기
+ const getAccumulatedFine = (memberId: string) => {
     const start = new Date(START_DATE)
     const today = new Date()
     const weeks: string[] = []
     const cur = new Date(start)
-    // 시작일이 속한 주의 월요일 찾기
     const startDay = cur.getDay()
     const startDiff = startDay === 0 ? -6 : 1 - startDay
     cur.setDate(cur.getDate() + startDiff)
@@ -78,17 +75,17 @@ export default function WeeklyPage() {
 
     let totalFine = 0
     for (const wStart of weeks) {
+      if (wStart === weekStart) continue  // 현재 보고 있는 주 제외
       const wEnd = new Date(wStart)
       wEnd.setDate(wEnd.getDate() + 6)
       const wEndStr = wEnd.toISOString().split('T')[0]
-      // 시작일 이전 주는 스킵
       if (wEndStr < START_DATE) continue
       const weekRecs = allRecords.filter(r => r.member_id === memberId && r.date >= wStart && r.date <= wEndStr)
       const f = calcWeekFineForRecords(weekRecs, memberId)
       totalFine += f.total
     }
 
-    const paid = allFines.filter(f => f.member_id === memberId && f.is_paid).reduce((a, f) => a + (f.total_fine || 0), 0)
+    const paid = allFines.filter(f => f.member_id === memberId && f.is_paid && f.week_start !== weekStart).reduce((a, f) => a + (f.total_fine || 0), 0)
     return { total: totalFine, paid, unpaid: totalFine - paid }
   }
 
